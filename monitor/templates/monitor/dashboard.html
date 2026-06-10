@@ -1,0 +1,82 @@
+{% extends 'monitor/base.html' %}
+{% block title %}Dashboard — Endpoint Monitor{% endblock %}
+
+{% block content %}
+
+<div class="metrics-grid">
+
+  <div class="metric-card" id="card-cpu">
+    <div class="metric-header">
+      <span class="metric-label">CPU usage</span>
+      <span class="metric-badge" id="badge-cpu">—</span>
+    </div>
+    <div class="metric-value" id="val-cpu">—</div>
+    <div class="metric-bar-track">
+      <div class="metric-bar" id="bar-cpu"></div>
+    </div>
+    <div class="metric-sub" id="sub-cpu">cores: —</div>
+  </div>
+
+  <div class="metric-card" id="card-ram">
+    <div class="metric-header">
+      <span class="metric-label">RAM usage</span>
+      <span class="metric-badge" id="badge-ram">—</span>
+    </div>
+    <div class="metric-value" id="val-ram">—</div>
+    <div class="metric-bar-track">
+      <div class="metric-bar" id="bar-ram"></div>
+    </div>
+    <div class="metric-sub" id="sub-ram">used / total</div>
+  </div>
+
+  <div class="metric-card" id="card-disk">
+    <div class="metric-header">
+      <span class="metric-label">Disk usage</span>
+      <span class="metric-badge" id="badge-disk">—</span>
+    </div>
+    <div class="metric-value" id="val-disk">—</div>
+    <div class="metric-bar-track">
+      <div class="metric-bar" id="bar-disk"></div>
+    </div>
+    <div class="metric-sub" id="sub-disk">used / total</div>
+  </div>
+
+  <div class="metric-card" id="card-net">
+    <div class="metric-header">
+      <span class="metric-label">Network</span>
+      <span class="metric-badge badge-info">live</span>
+    </div>
+    <div class="net-row">
+      <span class="net-label">↑ Sent</span>
+      <span class="net-value" id="val-net-sent">—</span>
+    </div>
+    <div class="net-row">
+      <span class="net-label">↓ Recv</span>
+      <span class="net-value" id="val-net-recv">—</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-title">CPU history</div>
+    <canvas id="chart-cpu" height="100"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">RAM history</div>
+    <canvas id="chart-ram" height="100"></canvas>
+  </div>
+</div>
+
+<div class="alerts-section">
+  <div class="alerts-header">
+    <span class="alerts-title">Recent alerts</span>
+    <span class="alerts-count" id="alert-count">0</span>
+  </div>
+  <div id="alerts-list">
+    <div class="alert-empty">No alerts — all metrics within normal range.</div>
+  </div>
+</div>
+
+{% endblock %}

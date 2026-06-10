@@ -1,0 +1,94 @@
+import socket
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.utils import timezone
+from datetime import timedelta
+
+from .models import MetricSnapshot, Alert
+
+
+def dashboard(request):
+    return render(request, 'monitor/dashboard.html')
+
+
+def api_metrics(request):
+    """Return the latest snapshot from DB, fallback to live psutil."""
+    snap = MetricSnapshot.objects.first()
+
+    if snap is None:
+        # DB empty — collector hasn't fired yet, return live data
+        import psutil
+        net  = __import__('psutil').net_io_counters()
+        ram  = __import__('psutil').virtual_memory()
+        disk = __import__('psutil').disk_usage('/')
+        return JsonResponse({
+            'hostname':       socket.gethostname(),
+            'cpu_percent':    __import__('psutil').cpu_percent(interval=0.5),
+            'cpu_cores':      __import__('psutil').cpu_count(logical=True),
+            'ram_percent':    ram.percent,
+            'ram_used':       ram.used,
+            'ram_total':      ram.total,
+            'disk_percent':   disk.percent,
+            'disk_used':      disk.used,
+            'disk_total':     disk.total,
+            'net_bytes_sent': net.bytes_sent,
+            'net_bytes_recv': net.bytes_recv,
+            'source': 'live',
+        })
+
+    return JsonResponse({
+        'hostname':       socket.gethostname(),
+        'cpu_percent':    snap.cpu_percent,
+        'cpu_cores':      snap.cpu_cores,
+        'ram_percent':    snap.ram_percent,
+        'ram_used':       snap.ram_used,
+        'ram_total':      snap.ram_total,
+        'disk_percent':   snap.disk_percent,
+        'disk_used':      snap.disk_used,
+        'disk_total':     snap.disk_total,
+        'net_bytes_sent': snap.net_bytes_sent,
+        'net_bytes_recv': snap.net_bytes_recv,
+        'source': 'db',
+    })
+
+
+def api_history(request):
+    """Return last N minutes of snapshots for charts."""
+    minutes = int(request.GET.get('minutes', 15))
+    since   = timezone.now() - timedelta(minutes=minutes)
+
+    snaps = (
+        MetricSnapshot.objects
+        .filter(timestamp__gte=since)
+        .order_by('timestamp')
+        .values('timestamp', 'cpu_percent', 'ram_percent', 'disk_percent')
+    )
+
+    return JsonResponse({
+        'snapshots': [
+            {
+                'time':         s['timestamp'].strftime('%H:%M:%S'),
+                'cpu_percent':  s['cpu_percent'],
+                'ram_percent':  s['ram_percent'],
+                'disk_percent': s['disk_percent'],
+            }
+            for s in snaps
+        ]
+    })
+
+
+def api_alerts(request):
+    """Return recent alerts from DB."""
+    alerts = Alert.objects.order_by('-timestamp')[:20]
+    return JsonResponse({
+        'alerts': [
+            {
+                'severity': a.severity,
+                'metric':   a.metric,
+                'message':  a.message,
+                'value':    a.value,
+                'time':     a.timestamp.strftime('%H:%M:%S'),
+            }
+            for a in alerts
+        ]
+    })
