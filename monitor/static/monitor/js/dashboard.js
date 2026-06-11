@@ -178,3 +178,64 @@ async function init() {
 }
 
 init()
+
+
+
+// ── process monitor ───────────────────────────────────────────
+async function loadProcesses() {
+  try {
+    const res  = await fetch('/api/processes/')
+    const data = await res.json()
+    renderProcesses(data.processes)
+  } catch (err) {
+    console.warn('Process load failed:', err)
+  }
+}
+
+function renderProcesses(processes) {
+  const tbody = document.getElementById('process-tbody')
+
+  if (!processes || processes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="process-empty">No process data.</td></tr>'
+    return
+  }
+
+  tbody.innerHTML = processes.map(p => {
+    const cpu     = (p.cpu_percent || 0).toFixed(1)
+    const ram     = (p.memory_percent || 0).toFixed(1)
+    const cpuSev  = p.cpu_percent >= 90 ? 'crit' : p.cpu_percent >= 70 ? 'warn' : ''
+    const status  = p.status || 'unknown'
+    const pillCls = status === 'running'  ? 'running'
+                  : status === 'sleeping' ? 'sleeping'
+                  : 'other'
+
+    return `
+      <tr>
+        <td>${p.pid}</td>
+        <td>${p.name}</td>
+        <td>
+          ${cpu}%
+          <span class="cpu-bar-inline">
+            <span class="cpu-bar-inline-fill ${cpuSev}"
+                  style="width:${Math.min(p.cpu_percent, 100)}%"></span>
+          </span>
+        </td>
+        <td>${ram}%</td>
+        <td><span class="status-pill ${pillCls}">${status}</span></td>
+      </tr>
+    `
+  }).join('')
+}
+
+// ── startup sequence ──────────────────────────────────────────
+async function init() {
+  await loadHistory()
+  await loadAlerts()
+  await loadProcesses()
+  await poll()
+  setInterval(poll, POLL_INTERVAL)
+  setInterval(loadAlerts,    30000)
+  setInterval(loadProcesses, 10000)   // refresh processes every 10s
+}
+
+init()

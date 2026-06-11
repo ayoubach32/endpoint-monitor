@@ -1,10 +1,15 @@
+from multiprocessing.util import info
 import socket
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 
+import psutil
+
 from .models import MetricSnapshot, Alert
+
+
 
 
 def dashboard(request):
@@ -92,3 +97,27 @@ def api_alerts(request):
             for a in alerts
         ]
     })
+
+
+
+def api_processes(request):
+    """Return top 5 processes by CPU usage."""
+    processes = []
+
+    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+        try:
+            info = proc.info
+            if info['name'] == 'System Idle Process':
+              continue
+            if info['memory_percent'] is None:
+                info['memory_percent'] = 0.0
+            processes.append(info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    top5 = sorted(processes, key=lambda p: p['cpu_percent'], reverse=True)[:5]
+
+    return JsonResponse({'processes': top5})
+
+
+

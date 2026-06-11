@@ -19,7 +19,7 @@ Mimics tools like Datadog and Prometheus — scoped to a single machine.
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/endpoint-monitor.git
+git clone https://github.com/ayoubach32/endpoint-monitor.git
 cd endpoint-monitor
 python -m venv venv
 venv\Scripts\activate
