@@ -127,3 +127,18 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+# ── Email (Gmail SMTP) ────────────────────────────────────────
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp.gmail.com'
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+EMAIL_HOST_USER     = 'ayoubach80@gmail.com'      # replace with your Gmail
+EMAIL_HOST_PASSWORD = 'ghsj lnjn xbqv irpr'    # replace with App Password
+DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER
+
+ALERT_RECIPIENT = 'ayoubach80@gmail.com'          # who receives the alerts
+
+#ghsj lnjn xbqv irpr

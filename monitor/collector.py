@@ -1,4 +1,3 @@
-import socket
 import threading
 import time
 import logging
@@ -7,24 +6,13 @@ import psutil
 
 logger = logging.getLogger(__name__)
 
-INTERVAL     = 5    # collect every 5 seconds
-MAX_ROWS     = 2000 # keep at most 2000 rows in DB (~2.7 hours at 5s)
-
-# alert thresholds
-THRESHOLDS = {
-    'cpu':  {'warn': 70, 'crit': 90},
-    'ram':  {'warn': 75, 'crit': 90},
-    'disk': {'warn': 80, 'crit': 95},
-}
-
-# cooldown: don't fire same alert twice within this many seconds
-ALERT_COOLDOWN = 300
-_last_alert: dict = {}
+INTERVAL = 5
+MAX_ROWS = 2000
 
 
 def _collect_once():
-    """Collect one snapshot and save to DB."""
-    from .models import MetricSnapshot, Alert
+    from .models import MetricSnapshot
+    from .alerts import check_and_alert
 
     net  = psutil.net_io_counters()
     ram  = psutil.virtual_memory()
@@ -43,52 +31,11 @@ def _collect_once():
         net_bytes_recv = net.bytes_recv,
     )
 
-    _check_alerts(snap)
+    check_and_alert(snap)
     _prune()
 
 
-def _check_alerts(snap):
-    """Create an Alert row if a metric crosses a threshold."""
-    from .models import Alert
-
-    checks = [
-        ('cpu',  snap.cpu_percent,  'CPU'),
-        ('ram',  snap.ram_percent,  'RAM'),
-        ('disk', snap.disk_percent, 'Disk'),
-    ]
-
-    now = time.time()
-
-    for key, value, label in checks:
-        thresh = THRESHOLDS[key]
-
-        if value >= thresh['crit']:
-            sev = 'crit'
-        elif value >= thresh['warn']:
-            sev = 'warn'
-        else:
-            continue
-
-        cooldown_key = f"{key}_{sev}"
-        last = _last_alert.get(cooldown_key, 0)
-        if now - last < ALERT_COOLDOWN:
-            continue
-
-        _last_alert[cooldown_key] = now
-        Alert.objects.create(
-            severity = sev,
-            metric   = key,
-            value    = value,
-            message  = (
-                f"{label} at {value:.1f}% — "
-                f"above {'90' if sev == 'crit' else thresh['warn']}% threshold"
-            ),
-        )
-        logger.warning("[%s] %s at %.1f%%", sev.upper(), label, value)
-
-
 def _prune():
-    """Delete oldest rows when DB grows too large."""
     from .models import MetricSnapshot
     count = MetricSnapshot.objects.count()
     if count > MAX_ROWS:
@@ -101,7 +48,6 @@ def _prune():
 
 
 def _loop():
-    """Background thread loop."""
     while True:
         try:
             _collect_once()
@@ -113,7 +59,6 @@ def _loop():
 _thread = None
 
 def start():
-    """Start the collector thread (call once at startup)."""
     global _thread
     if _thread is not None:
         return
