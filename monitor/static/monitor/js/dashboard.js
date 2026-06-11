@@ -1,48 +1,81 @@
-const POLL_INTERVAL = 3000
-const MAX_HISTORY   = 30
+const POLL_INTERVAL = 5000
+const MAX_POINTS    = 60
 
-const chartDefaults = (label, color) => ({
-  type: 'line',
-  data: {
-    labels: Array(MAX_HISTORY).fill(''),
-    datasets: [{
-      label,
-      data: Array(MAX_HISTORY).fill(null),
-      borderColor: color,
-      borderWidth: 2,
-      pointRadius: 0,
-      fill: true,
-      backgroundColor: color + '18',
-      tension: 0.4,
-    }]
-  },
-  options: {
-    animation: false,
-    responsive: true,
-    scales: {
-      y: {
-        min: 0, max: 100,
-        grid: { color: '#88878022' },
-        ticks: { color: '#888780', font: { size: 11 }, callback: v => v + '%' }
-      },
-      x: { display: false }
+// ── chart factory ─────────────────────────────────────────────
+function makeChart(id, label, color) {
+  return new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label,
+        data: [],
+        borderColor: color,
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: color + '18',
+        tension: 0.4,
+      }]
     },
-    plugins: { legend: { display: false } }
-  }
-})
+    options: {
+      animation: false,
+      responsive: true,
+      scales: {
+        y: {
+          min: 0, max: 100,
+          grid: { color: '#88878022' },
+          ticks: { color: '#888780', font: { size: 11 }, callback: v => v + '%' }
+        },
+        x: {
+          display: true,
+          ticks: {
+            color: '#888780',
+            font: { size: 10 },
+            maxTicksLimit: 6,
+            maxRotation: 0,
+          },
+          grid: { display: false }
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  })
+}
 
-const cpuChart = new Chart(document.getElementById('chart-cpu'), chartDefaults('CPU %', '#185FA5'))
-const ramChart = new Chart(document.getElementById('chart-ram'), chartDefaults('RAM %', '#3B6D11'))
+const cpuChart = makeChart('chart-cpu', 'CPU %', '#185FA5')
+const ramChart = makeChart('chart-ram', 'RAM %', '#3B6D11')
 
-function pushToChart(chart, value) {
+// ── push one point to a chart ─────────────────────────────────
+function pushPoint(chart, label, value) {
+  chart.data.labels.push(label)
   chart.data.datasets[0].data.push(value)
-  chart.data.datasets[0].data.shift()
+  if (chart.data.labels.length > MAX_POINTS) {
+    chart.data.labels.shift()
+    chart.data.datasets[0].data.shift()
+  }
   chart.update('none')
 }
 
+// ── load history from DB on page open ────────────────────────
+async function loadHistory() {
+  try {
+    const res  = await fetch('/api/history/?minutes=15')
+    const data = await res.json()
+
+    data.snapshots.forEach(s => {
+      pushPoint(cpuChart, s.time, s.cpu_percent)
+      pushPoint(ramChart, s.time, s.ram_percent)
+    })
+  } catch (err) {
+    console.warn('History load failed:', err)
+  }
+}
+
+// ── severity helpers ──────────────────────────────────────────
 function severity(value, warnAt, critAt) {
-  if (value >= critAt)  return 'crit'
-  if (value >= warnAt)  return 'warn'
+  if (value >= critAt) return 'crit'
+  if (value >= warnAt) return 'warn'
   return 'ok'
 }
 
@@ -59,32 +92,37 @@ function fmtBytes(bytes) {
   return (bytes / 1e3).toFixed(0) + ' KB'
 }
 
-const alertLog = []
-
-function addAlert(sev, message) {
-  const time = new Date().toLocaleTimeString()
-  alertLog.unshift({ sev, message, time })
-  if (alertLog.length > 20) alertLog.pop()
-  renderAlerts()
+// ── load alerts from DB ───────────────────────────────────────
+async function loadAlerts() {
+  try {
+    const res  = await fetch('/api/alerts/')
+    const data = await res.json()
+    renderAlerts(data.alerts)
+  } catch (err) {
+    console.warn('Alerts load failed:', err)
+  }
 }
 
-function renderAlerts() {
+function renderAlerts(alerts) {
   const list = document.getElementById('alerts-list')
-  document.getElementById('alert-count').textContent = alertLog.length
-  if (alertLog.length === 0) {
+  document.getElementById('alert-count').textContent = alerts.length
+
+  if (alerts.length === 0) {
     list.innerHTML = '<div class="alert-empty">No alerts — all metrics within normal range.</div>'
     return
   }
-  list.innerHTML = alertLog.map(a => `
+
+  list.innerHTML = alerts.map(a => `
     <div class="alert-item">
-      <span class="alert-sev ${a.sev}">${a.sev.toUpperCase()}</span>
+      <span class="alert-sev ${a.severity}">${a.severity.toUpperCase()}</span>
       <span class="alert-msg">${a.message}</span>
       <span class="alert-time">${a.time}</span>
     </div>
   `).join('')
 }
 
-function updateDashboard(data) {
+// ── update metric cards ───────────────────────────────────────
+function updateCards(data) {
   document.getElementById('hostname').textContent = data.hostname
 
   const cpu    = data.cpu_percent
@@ -93,7 +131,6 @@ function updateDashboard(data) {
   document.getElementById('bar-cpu').style.width = cpu + '%'
   document.getElementById('sub-cpu').textContent = data.cpu_cores + ' logical cores'
   applyBadge(document.getElementById('badge-cpu'), document.getElementById('bar-cpu'), cpuSev)
-  pushToChart(cpuChart, cpu)
 
   const ram    = data.ram_percent
   const ramSev = severity(ram, 75, 90)
@@ -101,7 +138,6 @@ function updateDashboard(data) {
   document.getElementById('bar-ram').style.width = ram + '%'
   document.getElementById('sub-ram').textContent = fmtBytes(data.ram_used) + ' / ' + fmtBytes(data.ram_total)
   applyBadge(document.getElementById('badge-ram'), document.getElementById('bar-ram'), ramSev)
-  pushToChart(ramChart, ram)
 
   const disk    = data.disk_percent
   const diskSev = severity(disk, 80, 95)
@@ -114,23 +150,31 @@ function updateDashboard(data) {
   document.getElementById('val-net-recv').textContent = fmtBytes(data.net_bytes_recv) + '/s'
 
   document.getElementById('status-dot').className = 'status-dot'
-
-  if (cpuSev === 'crit')  addAlert('crit', `CPU at ${cpu.toFixed(1)}% — above 90% threshold`)
-  else if (cpuSev === 'warn') addAlert('warn', `CPU at ${cpu.toFixed(1)}% — above 70% threshold`)
-  if (ramSev === 'crit')  addAlert('crit', `RAM at ${ram.toFixed(1)}% — above 90% threshold`)
-  if (diskSev === 'crit') addAlert('crit', `Disk at ${disk.toFixed(1)}% — above 95% threshold`)
 }
 
+// ── main poll loop ────────────────────────────────────────────
 async function poll() {
   try {
     const res  = await fetch('/api/metrics/')
     const data = await res.json()
-    updateDashboard(data)
+    const now  = new Date().toLocaleTimeString()
+
+    updateCards(data)
+    pushPoint(cpuChart, now, data.cpu_percent)
+    pushPoint(ramChart, now, data.ram_percent)
   } catch (err) {
     document.getElementById('status-dot').className = 'status-dot offline'
     console.error('Poll failed:', err)
   }
 }
 
-poll()
-setInterval(poll, POLL_INTERVAL)
+// ── startup sequence ──────────────────────────────────────────
+async function init() {
+  await loadHistory()   // 1. fill charts with DB history
+  await loadAlerts()    // 2. load saved alerts
+  await poll()          // 3. first live update immediately
+  setInterval(poll, POLL_INTERVAL)                    // 4. keep polling
+  setInterval(loadAlerts, 30000)                      // 5. refresh alerts every 30s
+}
+
+init()
