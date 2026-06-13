@@ -10,12 +10,16 @@
 </head>
 <body>
   <nav class="navbar">
-    <span class="nav-brand">
-      <span class="status-dot" id="status-dot"></span>
-      Endpoint Monitor
-    </span>
+  <div class="nav-left">
+    {% load static %}
+    <img src="{% static 'monitor/css/logo.png' %}" alt="Endpoint Monitor" class="nav-logo">
+  </div>
+  <div class="nav-right">
+    <span class="status-dot" id="status-dot"></span>
+    <span class="nav-status-text">live</span>
     <span class="nav-host" id="hostname">Loading...</span>
-  </nav>
+  </div>
+</nav>
   <main class="main-content">
     {% block content %}{% endblock %}
   </main>

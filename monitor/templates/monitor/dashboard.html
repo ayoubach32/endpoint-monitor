@@ -69,6 +69,45 @@
   </div>
 </div>
 
+<div class="ml-grid">
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-label">Anomaly Detection</span>
+      <span class="metric-badge badge-info">ML model</span>
+    </div>
+    <div class="ml-row">
+      <span class="ml-metric-label">CPU</span>
+      <span class="ml-status" id="ml-cpu-status">—</span>
+      <span class="ml-zscore" id="ml-cpu-z">z=—</span>
+    </div>
+    <div class="ml-row">
+      <span class="ml-metric-label">RAM</span>
+      <span class="ml-status" id="ml-ram-status">—</span>
+      <span class="ml-zscore" id="ml-ram-z">z=—</span>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-label">30s Forecast</span>
+      <span class="metric-badge badge-info">ML model</span>
+    </div>
+    <div class="ml-row">
+      <span class="ml-metric-label">CPU</span>
+      <span class="ml-forecast" id="ml-cpu-forecast">—</span>
+    </div>
+    <div class="ml-row">
+      <span class="ml-metric-label">RAM</span>
+      <span class="ml-forecast" id="ml-ram-forecast">—</span>
+    </div>
+    <div class="metric-sub" style="margin-top:10px">
+      predicted value in 30 seconds
+    </div>
+  </div>
+
+</div>
+
 <div class="process-section">
   <div class="process-header">
     <span class="process-title">Top processes</span>

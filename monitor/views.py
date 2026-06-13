@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
+from . import ml_engine
 
 import psutil
 
@@ -121,3 +122,34 @@ def api_processes(request):
 
 
 
+
+
+# keep a rolling buffer of last 10 readings for forecasting
+_cpu_history = []
+_ram_history = []
+
+
+def api_ml(request):
+    """Return anomaly detection + forecast for current metrics."""
+    global _cpu_history, _ram_history
+
+    snap = MetricSnapshot.objects.first()
+    if snap is None:
+        return JsonResponse({'error': 'No data yet'}, status=404)
+
+    # update rolling history
+    _cpu_history.append(snap.cpu_percent)
+    _ram_history.append(snap.ram_percent)
+    if len(_cpu_history) > 10:
+        _cpu_history.pop(0)
+    if len(_ram_history) > 10:
+        _ram_history.pop(0)
+
+    # run models
+    anomaly  = ml_engine.detect_anomaly(snap.cpu_percent, snap.ram_percent)
+    forecast = ml_engine.forecast(_cpu_history, _ram_history)
+
+    return JsonResponse({
+        'anomaly':  anomaly,
+        'forecast': forecast,
+    })

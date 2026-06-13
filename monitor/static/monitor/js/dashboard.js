@@ -239,3 +239,50 @@ async function init() {
 }
 
 init()
+
+// ── ML panel ──────────────────────────────────────────────────
+async function loadML() {
+  try {
+    const res  = await fetch('/api/ml/')
+    const data = await res.json()
+
+    if (data.anomaly) {
+      updateAnomalyCard('cpu', data.anomaly.cpu)
+      updateAnomalyCard('ram', data.anomaly.ram)
+    }
+
+    if (data.forecast && data.forecast.available) {
+      document.getElementById('ml-cpu-forecast').textContent =
+        data.forecast.cpu_forecast + '%'
+      document.getElementById('ml-ram-forecast').textContent =
+        data.forecast.ram_forecast + '%'
+    }
+  } catch (err) {
+    console.warn('ML load failed:', err)
+  }
+}
+
+function updateAnomalyCard(metric, result) {
+  const statusEl = document.getElementById(`ml-${metric}-status`)
+  const zEl      = document.getElementById(`ml-${metric}-z`)
+
+  statusEl.textContent = result.severity
+  statusEl.className   = 'ml-status' +
+    (result.severity !== 'normal' ? ' ' + result.severity : '')
+  zEl.textContent = `z=${result.z_score}`
+}
+
+// ── startup sequence ──────────────────────────────────────────
+async function init() {
+  await loadHistory()
+  await loadAlerts()
+  await loadProcesses()
+  await loadML()
+  await poll()
+  setInterval(poll,         POLL_INTERVAL)
+  setInterval(loadAlerts,   30000)
+  setInterval(loadProcesses,10000)
+  setInterval(loadML,       10000)
+}
+
+init()

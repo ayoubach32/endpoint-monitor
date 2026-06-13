@@ -6,9 +6,10 @@ class MonitorConfig(AppConfig):
     name = 'monitor'
 
     def ready(self):
-        # only start in the main process (not during migrate, shell, etc.)
         import sys
         if 'runserver' not in sys.argv:
             return
         from . import collector
+        from . import ml_engine
+        ml_engine.load_models()
         collector.start()
